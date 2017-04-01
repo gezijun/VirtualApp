@@ -2,6 +2,7 @@
 // VirtualApp Native Project
 //
 #include "VMPatch.h"
+#include "../Helper.h"
 
 typedef void (*Bridge_DalvikBridgeFunc)(const void **, void *, const void *, void *);
 
@@ -91,6 +92,8 @@ static jobject new_native_openDexNativeFunc(JNIEnv *env, jclass jclazz, jstring 
     jclass stringClass = env->FindClass("java/lang/String");
     jobjectArray array = env->NewObjectArray(2, stringClass, NULL);
 
+
+
     if (javaSourceName) {
         env->SetObjectArrayElement(array, 0, javaSourceName);
     }
@@ -119,6 +122,7 @@ static jobject new_native_openDexNativeFunc_N(JNIEnv *env, jclass jclazz, jstrin
         env->SetObjectArrayElement(array, 1, javaOutputName);
     }
     env->CallStaticVoidMethod(g_jclass, gOffset.method_onOpenDexFileNative, array);
+    LOGE("REPLACE new_native_openDexNativeFunc_N array  ");
 
     jstring newSource = (jstring) env->GetObjectArrayElement(array, 0);
     jstring newOutput = (jstring) env->GetObjectArrayElement(array, 1);
@@ -153,6 +157,7 @@ new_bridge_openDexNativeFunc(const void **args, void *pResult, const void *metho
     }
 
     env->CallStaticVoidMethod(g_jclass, gOffset.method_onOpenDexFileNative, array);
+    LOGE("REPLACE method_onOpenDexFileNative array ");
 
     jstring newSource = (jstring) env->GetObjectArrayElement(array, 0);
     jstring newOutput = (jstring) env->GetObjectArrayElement(array, 1);
@@ -263,7 +268,10 @@ inline void
 replaceOpenDexFileMethod(JNIEnv *env, jobject javaMethod, jboolean isArt, int apiLevel) {
 
     size_t mtd_openDexNative = (size_t) env->FromReflectedMethod(javaMethod);
+    LOGE("REPLACE mtd_openDexNative = %d " ,  mtd_openDexNative);
+
     int nativeFuncOffset = gOffset.nativeOffset;
+    LOGE("REPLACE nativeFuncOffset = %d " ,  nativeFuncOffset);
     void **jniFuncPtr = (void **) (mtd_openDexNative + nativeFuncOffset);
 
     if (!isArt) {

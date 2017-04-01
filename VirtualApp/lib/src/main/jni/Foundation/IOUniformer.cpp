@@ -4,6 +4,8 @@
 #include <util.h>
 #include "IOUniformer.h"
 #include "native_hook.h"
+#include "../Helper.h"
+#include "../MSHook/MSHook.h"
 
 static std::map<std::string/*orig_path*/, std::string/*new_path*/> IORedirectMap;
 static std::map<std::string/*orig_path*/, std::string/*new_path*/> RootIORedirectMap;
@@ -489,13 +491,17 @@ HOOK_DEF(void*, dlopen, const char *filename, int flag) {
 }
 
 HOOK_DEF(void*, do_dlopen_V19, const char *filename, int flag, const void *extinfo) {
+    LOGE("REPLACE do_dlopen_V19 filename = %s " , filename);
     const char *redirect_path = match_redirected_path(filename);
+    LOGE("REPLACE redirect_path = %s " ,redirect_path );
     void *ret = orig_do_dlopen_V19(redirect_path, flag, extinfo);
     onSoLoaded(filename, ret);
     LOGD("do_dlopen : %s, return : %p.", redirect_path, ret);
     FREE(redirect_path, filename);
     return ret;
 }
+
+
 
 HOOK_DEF(void*, do_dlopen_V24, const char *name, int flags, const void *extinfo,
          void *caller_addr) {
@@ -533,9 +539,27 @@ __END_DECLS
 // end IO DEF
 
 
-void onSoLoaded(const char *name, void *handle) {
+jbyteArray (*org_EncryptStringWrap)
+        (JNIEnv *env , jclass clazz , jbyteArray jBuffer, jint lengths);
+
+jbyteArray hook_EncryptStringWrap
+        (JNIEnv *env , jclass clazz , jbyteArray jBuffer, jint lengths){
+    LOGE("HOOK TEST");
+    jbyteArray result = org_EncryptStringWrap
+            ( env ,  clazz ,  jBuffer,  lengths);
+    jbyte* bBuffer = env->GetByteArrayElements(result,0);
+    const unsigned char* str_char=(unsigned char*)bBuffer;
+    LOGE("HOOK result = %s " ,str_char);
 }
 
+void onSoLoaded(const char *name, void *handle) {
+    if(strstr(name, "securityLogHelper")!=NULL) {
+        LOGE("HOOK securityLogHelper");
+        void *haddleEncryptStringWrap = dlsym(handle, "EncryptStringWrap");
+        inlineHookDirect((unsigned int) haddleEncryptStringWrap, (void *) hook_EncryptStringWrap,
+                         (void **) &org_EncryptStringWrap);
+    }
+}
 
 void hook_dlopen(int api_level) {
     void *symbol = NULL;
